@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block title %}Meal Logs - Isle Royale Backcountry Planner{% endblock %}
+
+{% block content %}
+    <h2>Trip Meal Logs</h2>
+    <p>Track your breakfast, lunch, dinner, and snack plans day-by-day, along with your estimated food weight.</p>
+
+    <div style="background-color: #e2ede8; padding: 15px; border-radius: 6px; margin-bottom: 25px; font-weight: bold; font-size: 1.1rem; color: #2e4a3f;">
+        Total Food Weight: {{ total_weight }} lbs
+    </div>
+
+    <form method="POST" action="/meals">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Day</th>
+                    <th style="width: 20%;">Breakfast</th>
+                    <th style="width: 20%;">Lunch</th>
+                    <th style="width: 20%;">Dinner</th>
+                    <th style="width: 15%;">Snack</th>
+                    <th style="width: 10%;">Weight (lbs)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for meal in meals %}
+                <tr>
+                    <td><strong>{{ meal.day }}</strong></td>
+                    <td><input type="text" name="breakfast_{{ loop.index0 }}" value="{{ meal.breakfast }}"></td>
+                    <td><input type="text" name="lunch_{{ loop.index0 }}" value="{{ meal.lunch }}"></td>
+                    <td><input type="text" name="dinner_{{ loop.index0 }}" value="{{ meal.dinner }}"></td>
+                    <td><input type="text" name="snack_{{ loop.index0 }}" value="{{ meal.snack }}"></td>
+                    <td><input type="number" step="0.1" name="weight_{{ loop.index0 }}" value="{{ meal.weight }}"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn">Save Meal Changes</button>
+            <button type="submit" name="action" value="add" class="btn">Add Meal Day</button>
+            <button type="submit" name="action" value="remove" class="btn btn-danger">Remove Last Day</button>
+        </div>
+    </form>
+{% endblock %}

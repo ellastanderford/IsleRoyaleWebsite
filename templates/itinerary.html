@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block title %}Route Planner - Isle Royale Backcountry Planner{% endblock %}
+
+{% block content %}
+    <h2>Backcountry Route Planner</h2>
+    <p>Select your campgrounds below to build your itinerary and calculate total trail miles.</p>
+
+    <div style="margin: 20px 0; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;">
+        <iframe src="/map_embed" style="width: 100%; height: 450px; border: none;"></iframe>
+    </div>
+
+    <div style="background-color: #e2ede8; padding: 15px; border-radius: 6px; margin-bottom: 25px; font-weight: bold; font-size: 1.1rem; color: #2e4a3f;">
+        Total Calculated Trip Distance: {{ total_miles }} miles
+    </div>
+
+    <form method="POST" action="/itinerary">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Trip Schedule</th>
+                    <th style="width: 70%;">Designated Campground Location</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stop in route %}
+                <tr>
+                    <td><strong>{{ stop.day }}</strong></td>
+                    <td>
+                        <select name="camp_{{ loop.index0 }}">
+                            {% for campground in campgrounds %}
+                            <option value="{{ campground }}" {% if stop.campground == campground %}selected{% endif %}>
+                                {{ campground }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" name="action" value="save_route" class="btn">Update & Calculate Route</button>
+            <button type="submit" name="action" value="add_stop" class="btn">Append Next Day</button>
+            <button type="submit" name="action" value="remove_stop" class="btn btn-danger">Remove Last Day</button>
+        </div>
+    </form>
+{% endblock %}

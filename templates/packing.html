@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block title %}Gear List - Isle Royale Backcountry Planner{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* checklist specific styles */
+    .checklist-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        background: #f4f4f4;
+        margin-bottom: 8px;
+        border-radius: 4px;
+        border-left: 4px solid #2e4a3f;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .checklist-item input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-right: 15px;
+        cursor: pointer;
+        accent-color: #2e4a3f; /* styles the checkbox to match our theme */
+    }
+
+    .checklist-item span {
+        font-size: 1.05rem;
+        transition: color 0.2s ease;
+    }
+
+    /* stylistic change when item is checked off */
+    .checklist-item.completed {
+        background: #eef3f0;
+        border-left-color: #a2b5ad;
+    }
+
+    .checklist-item.completed span {
+        text-decoration: line-through;
+        color: #777;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <h2>Backcountry Gear List</h2>
+    <p>A functional checklist for the essential wilderness items you will need on the island. Click any item to check it off your list.</p>
+
+    <div style="margin-bottom: 30px;">
+        <div id="gearChecklist">
+            {% for item in gear %}
+            <div class="checklist-item" onclick="toggleCheck(this)">
+                <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement);">
+                <span>{{ item }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+
+    <h3>Add Gear Item</h3>
+    <form method="POST" action="/packing" style="display: flex; gap: 10px; max-width: 500px;">
+        <input type="text" name="new_item" placeholder="e.g., camp stove, bear rope, compass" required>
+        <button type="submit" class="btn" style="white-space: nowrap;">➕ Add Item</button>
+    </form>
+
+    <script>
+        function toggleCheck(element) {
+            // figure out if we were passed the div wrapper or the input box itself
+            const row = element.classList.contains('checklist-item') ? element : element.parentElement;
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            
+            // toggle the visual state class
+            row.classList.toggle('completed');
+            
+            // force the checkbox state to match the row state logic
+            checkbox.checked = row.classList.contains('completed');
+        }
+    </script>
+{% endblock %}
