@@ -9,6 +9,7 @@ app = Flask(__name__)
 # 1. campground database & map coordinates
 # ==========================================
 ALL_CAMPGROUNDS = {
+    # --- Official Campgrounds ---
     "Beaver Island": [47.904424, -89.174108],
     "Belle Isle": [48.157932, -88.586855],
     "Birch Island": [48.119809, -88.689763],
@@ -42,43 +43,77 @@ ALL_CAMPGROUNDS = {
     "Todd Harbor": [48.052702, -88.822095],
     "Tookers Island": [48.134819, -88.492374],
     "Washington Creek (Windigo)": [47.924625, -89.151849],
-    "Wood Lake": [48.018419, -88.733648]
+    "Wood Lake": [48.018419, -88.733648],
+
+    # --- Crucial Trail Junctions (Waypoints) ---
+    "Jct_Mt_Franklin": [48.1328, -88.5492],
+    "Jct_Mt_Ojibway": [48.1141, -88.6045],
+    "Jct_Tobin_Harbor_Trail": [48.1450, -88.4910],
+    "Jct_Hatchet_Greenstone": [48.0381, -88.8312],
+    "Jct_Lake_Richie_Malone_Bay": [48.0435, -88.6790],
+    "Jct_Minong_Todd_Harbor": [48.0610, -88.8105]
 }
 
 OFFICIAL_TRAIL_NETWORK = [
+    # Rock Harbor area trails
     ("Rock Harbor", "Three Mile", 2.7),
-    ("Three Mile", "Daisy Farm", 4.4),
+    ("Rock Harbor", "Jct_Tobin_Harbor_Trail", 0.8),
+    ("Jct_Tobin_Harbor_Trail", "Three Mile", 2.2),
+    
+    # Three Mile & Lane Cove updates
+    ("Three Mile", "Jct_Mt_Franklin", 3.1),
+    ("Jct_Mt_Franklin", "Lane Cove", 1.5),
+    ("Jct_Mt_Franklin", "Jct_Mt_Ojibway", 2.5),
+    
+    # Daisy Farm Links
+    ("Daisy Farm", "Three Mile", 4.4),
     ("Daisy Farm", "Moskey Basin", 3.9),
-    ("Three Mile", "Lane Cove", 4.6),
-    ("Daisy Farm", "Chickenbone West", 7.9),
-    ("Moskey Basin", "Lake Richie", 2.0),
+    ("Daisy Farm", "Jct_Mt_Ojibway", 1.7),
+    
+    # Greenstone Ridge Spine (Central Island)
+    ("Jct_Mt_Ojibway", "Chickenbone East", 5.9),
     ("Chickenbone East", "Chickenbone West", 1.8),
+    ("Chickenbone West", "Jct_Hatchet_Greenstone", 5.4),
+    ("Jct_Hatchet_Greenstone", "Hatchet Lake", 0.8),
+    ("Jct_Hatchet_Greenstone", "Lake Desor South", 8.1),
+    
+    # McCargoe / Chickenbone / Link Trails
     ("Chickenbone East", "McCargoe Cove", 1.2),
     ("Chickenbone West", "McCargoe Cove", 3.2),
-    ("Lake Richie", "Chippewa Harbor", 4.3),
-    ("Lake Richie", "Malone Bay", 6.3),
-    ("Chickenbone West", "Hatchet Lake", 7.9),
-    ("Hatchet Lake", "Todd Harbor", 4.1),
-    ("Hatchet Lake", "Lake Desor South", 8.1),
+    ("Daisy Farm", "Chickenbone West", 7.9),
+    
+    # Lake Richie / Moskey Systems
+    ("Moskey Basin", "Lake Richie", 2.0),
+    ("Lake Richie", "Jct_Lake_Richie_Malone_Bay", 0.5),
+    ("Jct_Lake_Richie_Malone_Bay", "Chippewa Harbor", 3.8),
+    ("Jct_Lake_Richie_Malone_Bay", "Malone Bay", 5.8),
+    ("Wood Lake", "Lake Richie", 2.1),
+    ("Lake Richie Canoe", "Lake Richie", 0.8),
+
+    # Todd Harbor / Northern Trails
+    ("Hatchet Lake", "Jct_Minong_Todd_Harbor", 3.3),
+    ("Jct_Minong_Todd_Harbor", "Todd Harbor", 0.8),
+    ("Jct_Minong_Todd_Harbor", "Little Todd Harbor", 6.8),
+    ("Belle Isle", "McCargoe Cove", 5.2),
+    ("Birch Island", "McCargoe Cove", 1.0),
+
+    # West End Spine (Windigo / Desor / Feldtmann)
     ("Lake Desor South", "Washington Creek (Windigo)", 11.3),
+    ("Lake Desor North", "Lake Desor South", 3.0),
     ("Washington Creek (Windigo)", "Feldtmann Lake", 8.8),
     ("Feldtmann Lake", "Siskiwit Bay", 10.3),
     ("Siskiwit Bay", "Island Mine", 4.4),
     ("Island Mine", "Washington Creek (Windigo)", 6.6),
     ("Washington Creek (Windigo)", "Huginnin Cove", 4.0),
+    
+    # Marine / Island Stops
     ("Beaver Island", "Washington Creek (Windigo)", 1.5),
-    ("Belle Isle", "McCargoe Cove", 5.2),
-    ("Birch Island", "McCargoe Cove", 1.0),
-    ("Caribou Island", "Three Mile", 2.0),
-    ("Duncan Bay", "Lane Cove", 3.1),
-    ("Duncan Narrows", "Duncan Bay", 1.5),
     ("Grace Island", "Washington Creek (Windigo)", 2.5),
-    ("Lake Desor North", "Lake Desor South", 3.0),
-    ("Lake Richie Canoe", "Lake Richie", 0.8),
-    ("Little Todd Harbor", "Todd Harbor", 6.8),
+    ("Caribou Island", "Three Mile", 2.0),
+    ("Duncan Narrows", "Duncan Bay", 1.5),
+    ("Duncan Bay", "Jct_Mt_Franklin", 2.0),
     ("Pickerel Cove", "Three Mile", 3.2),
     ("Tookers Island", "Rock Harbor", 1.8),
-    ("Wood Lake", "Lake Richie", 2.1),
     ("Merritt Lane", "Rock Harbor", 4.2),
     ("Hay Bay", "Siskiwit Bay", 4.5)
 ]
@@ -116,9 +151,7 @@ def find_shortest_path_trail(start, target):
             graph[u].append((v, w))
             graph[v].append((u, w))
 
-    # Priority queue storing (distance, current_node)
     pq = [(0.0, start)]
-    
     distances = {node: float('inf') for node in graph}
     previous_nodes = {node: None for node in graph}
     distances[start] = 0.0
@@ -142,7 +175,6 @@ def find_shortest_path_trail(start, target):
     if distances[target] == float('inf'):
         return float('inf'), []
 
-    # Stitch back path nodes sequentially
     path = []
     curr = target
     while curr is not None:
@@ -174,7 +206,6 @@ def parse_full_itinerary_map_data(route_plan):
             
         total_miles += miles
         
-        # append coordinate sequences safely without duplication overlaps
         for node in node_path:
             coords = ALL_CAMPGROUNDS[node]
             if not complete_trail_gps_points or complete_trail_gps_points[-1] != coords:
@@ -210,20 +241,18 @@ def itinerary():
                 if selected_camp in ALL_CAMPGROUNDS:
                     saved_route_plan[index]['campground'] = selected_camp
 
-    # setup underlying base canvas map
     ir_map = folium.Map(location=[48.05, -88.80], zoom_start=10, control_scale=True)
 
-    # plot base anchor nodes for the 34 campgrounds
+    # Plot base map campground markers (Hiding structural Jct_ waypoints from messy rendering)
     for name, coords in ALL_CAMPGROUNDS.items():
-        folium.CircleMarker(
-            location=coords, radius=5, popup=name,
-            color='dimgray', fill=True, fill_color='lightgray', fill_opacity=0.7
-        ).add_to(ir_map)
+        if not name.startswith("Jct_"):
+            folium.CircleMarker(
+                location=coords, radius=5, popup=name,
+                color='dimgray', fill=True, fill_color='lightgray', fill_opacity=0.7
+            ).add_to(ir_map)
 
-    # query trailing traces and cumulative path distance totals
     total_miles, snapped_trail_coordinates = parse_full_itinerary_map_data(saved_route_plan)
 
-    # drop custom clear pin markers for designated itinerary travel hubs
     for index, stop in enumerate(saved_route_plan):
         camp_name = stop['campground']
         if camp_name in ALL_CAMPGROUNDS:
@@ -233,20 +262,21 @@ def itinerary():
                 icon=folium.Icon(color='red', icon='info-sign')
             ).add_to(ir_map)
 
-    # draw line layers dynamically snapped on calculated coordinates
     if len(snapped_trail_coordinates) > 1:
         folium.PolyLine(
             locations=snapped_trail_coordinates,
             color='blue', weight=4, opacity=0.85, dash_array='5, 10'
         ).add_to(ir_map)
 
-    # Make sure the templates directory exists
     os.makedirs('templates', exist_ok=True)
     ir_map.save('templates/map_embed.html')
 
+    # Filter waypoints out of dropdown select list so users only see real campsites
+    clean_dropdown_campgrounds = sorted([c for c in ALL_CAMPGROUNDS.keys() if not c.startswith("Jct_")])
+
     return render_template('itinerary.html', 
                            route=saved_route_plan, 
-                           campgrounds=sorted(ALL_CAMPGROUNDS.keys()), 
+                           campgrounds=clean_dropdown_campgrounds, 
                            total_miles=total_miles)
 
 @app.route('/map_embed')
