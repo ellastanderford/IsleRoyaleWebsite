@@ -45,59 +45,59 @@ ALL_CAMPGROUNDS = {
     "Washington Creek (Windigo)": [47.924625, -89.151849],
     "Wood Lake": [48.018419, -88.733648],
 
-    # --- Crucial Trail Junctions (Waypoints) ---
+    # --- Structural Trail Intersections ---
     "Jct_Mt_Franklin": [48.1328, -88.5492],
     "Jct_Mt_Ojibway": [48.1141, -88.6045],
-    "Jct_Tobin_Harbor_Trail": [48.1450, -88.4910],
-    "Jct_Hatchet_Greenstone": [48.0381, -88.8312],
-    "Jct_Lake_Richie_Malone_Bay": [48.0435, -88.6790],
-    "Jct_Minong_Todd_Harbor": [48.0610, -88.8105]
+    "Jct_Tobin_Harbor": [48.1450, -88.4910],
+    "Jct_Lake_Richie_Malone": [48.0435, -88.6790],
+    "Jct_Indian_Portage_Greenstone": [48.0655, -88.7110],
+    "Jct_Hatchet_Ridge": [48.0381, -88.8312],
+    "Jct_Minong_Todd": [48.0610, -88.8105]
 }
 
 OFFICIAL_TRAIL_NETWORK = [
-    # Rock Harbor area trails
+    # East Side / Rock Harbor Hubs
     ("Rock Harbor", "Three Mile", 2.7),
-    ("Rock Harbor", "Jct_Tobin_Harbor_Trail", 0.8),
-    ("Jct_Tobin_Harbor_Trail", "Three Mile", 2.2),
+    ("Rock Harbor", "Jct_Tobin_Harbor", 0.8),
+    ("Jct_Tobin_Harbor", "Three Mile", 2.2),
+    ("Three Mile", "Daisy Farm", 4.4),
     
-    # Three Mile & Lane Cove updates
+    # Mount Franklin & Lane Cove Snaps
     ("Three Mile", "Jct_Mt_Franklin", 3.1),
     ("Jct_Mt_Franklin", "Lane Cove", 1.5),
     ("Jct_Mt_Franklin", "Jct_Mt_Ojibway", 2.5),
     
-    # Daisy Farm Links
-    ("Daisy Farm", "Three Mile", 4.4),
+    # Daisy Farm Ridges
     ("Daisy Farm", "Moskey Basin", 3.9),
     ("Daisy Farm", "Jct_Mt_Ojibway", 1.7),
+    ("Daisy Farm", "Jct_Indian_Portage_Greenstone", 7.9),
     
-    # Greenstone Ridge Spine (Central Island)
+    # Central Greenstone & Chickenbone System
     ("Jct_Mt_Ojibway", "Chickenbone East", 5.9),
     ("Chickenbone East", "Chickenbone West", 1.8),
-    ("Chickenbone West", "Jct_Hatchet_Greenstone", 5.4),
-    ("Jct_Hatchet_Greenstone", "Hatchet Lake", 0.8),
-    ("Jct_Hatchet_Greenstone", "Lake Desor South", 8.1),
-    
-    # McCargoe / Chickenbone / Link Trails
     ("Chickenbone East", "McCargoe Cove", 1.2),
     ("Chickenbone West", "McCargoe Cove", 3.2),
-    ("Daisy Farm", "Chickenbone West", 7.9),
+    ("Chickenbone West", "Jct_Indian_Portage_Greenstone", 0.2),
+    ("Jct_Indian_Portage_Greenstone", "Jct_Hatchet_Ridge", 5.4),
     
-    # Lake Richie / Moskey Systems
+    # Lake Richie Area Connections
     ("Moskey Basin", "Lake Richie", 2.0),
-    ("Lake Richie", "Jct_Lake_Richie_Malone_Bay", 0.5),
-    ("Jct_Lake_Richie_Malone_Bay", "Chippewa Harbor", 3.8),
-    ("Jct_Lake_Richie_Malone_Bay", "Malone Bay", 5.8),
+    ("Lake Richie", "Jct_Lake_Richie_Malone", 0.5),
+    ("Jct_Lake_Richie_Malone", "Chippewa Harbor", 3.8),
+    ("Jct_Lake_Richie_Malone", "Malone Bay", 5.8),
     ("Wood Lake", "Lake Richie", 2.1),
     ("Lake Richie Canoe", "Lake Richie", 0.8),
 
-    # Todd Harbor / Northern Trails
-    ("Hatchet Lake", "Jct_Minong_Todd_Harbor", 3.3),
-    ("Jct_Minong_Todd_Harbor", "Todd Harbor", 0.8),
-    ("Jct_Minong_Todd_Harbor", "Little Todd Harbor", 6.8),
+    # Todd Harbor / Northern Minong Segments
+    ("Jct_Hatchet_Ridge", "Hatchet Lake", 0.8),
+    ("Hatchet Lake", "Jct_Minong_Todd", 3.3),
+    ("Jct_Minong_Todd", "Todd Harbor", 0.8),
+    ("Jct_Minong_Todd", "Little Todd Harbor", 6.8),
     ("Belle Isle", "McCargoe Cove", 5.2),
     ("Birch Island", "McCargoe Cove", 1.0),
 
-    # West End Spine (Windigo / Desor / Feldtmann)
+    # West End Base Chains
+    ("Jct_Hatchet_Ridge", "Lake Desor South", 8.1),
     ("Lake Desor South", "Washington Creek (Windigo)", 11.3),
     ("Lake Desor North", "Lake Desor South", 3.0),
     ("Washington Creek (Windigo)", "Feldtmann Lake", 8.8),
@@ -106,7 +106,7 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Island Mine", "Washington Creek (Windigo)", 6.6),
     ("Washington Creek (Windigo)", "Huginnin Cove", 4.0),
     
-    # Marine / Island Stops
+    # Water-Taxi / Non-Standard Connectors
     ("Beaver Island", "Washington Creek (Windigo)", 1.5),
     ("Grace Island", "Washington Creek (Windigo)", 2.5),
     ("Caribou Island", "Three Mile", 2.0),
@@ -122,9 +122,7 @@ OFFICIAL_TRAIL_NETWORK = [
 # 2. state management storage
 # ==========================================
 saved_route_plan = [
-    {"day": "Day 1", "campground": "Rock Harbor"},
-    {"day": "Day 2", "campground": "Three Mile"},
-    {"day": "Day 3", "campground": "Daisy Farm"}
+    {"day": "Day 1", "campground": "Rock Harbor"}
 ]
 
 trip_meals = [
@@ -229,7 +227,12 @@ def itinerary():
 
         if action == 'add_stop':
             new_day = len(saved_route_plan) + 1
-            saved_route_plan.append({"day": f"Day {new_day}", "campground": "Rock Harbor"})
+            # If there's already a stop, default the new day to the previous day's choice
+            if saved_route_plan:
+                last_campground = saved_route_plan[-1]['campground']
+            else:
+                last_campground = "Rock Harbor"
+            saved_route_plan.append({"day": f"Day {new_day}", "campground": last_campground})
             
         elif action == 'remove_stop':
             if len(saved_route_plan) > 0:
