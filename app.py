@@ -1,3 +1,5 @@
+import os
+import heapq
 from flask import Flask, render_template, request
 import folium
 
@@ -96,54 +98,56 @@ trip_meals = [
 
 gear_list = ["Tent", "Sleeping Bag", "Water Filter"]
 
-# ==========================================
+# ====================================================
 # 3. professional trail tracking core (dijkstra code)
-# ==========================================
+# ====================================================
 def find_shortest_path_trail(start, target):
     """
-    advanced dijkstra implementation.
+    advanced dijkstra implementation using a priority queue.
     returns a tuple of (total_distance, list_of_campground_nodes_visited)
-    this ensures map paths snap along true trails instead of drawing across open ocean water.
+    this ensures map paths snap along true trails instead of drawing across open water
     """
     if start == target:
         return 0.0, [start]
 
     graph = {camp: [] for camp in ALL_CAMPGROUNDS.keys()}
     for u, v, w in OFFICIAL_TRAIL_NETWORK:
-        graph[u].append((v, w))
-        graph[v].append((u, w))
+        if u in graph and v in graph:
+            graph[u].append((v, w))
+            graph[v].append((u, w))
 
+    # Priority queue storing (distance, current_node)
+    pq = [(0.0, start)]
+    
     distances = {node: float('inf') for node in graph}
     previous_nodes = {node: None for node in graph}
     distances[start] = 0.0
-    unvisited = set(graph.keys())
 
-    while unvisited:
-        current_node = min(unvisited, key=lambda node: distances[node])
-        
-        if distances[current_node] == float('inf'):
-            break
+    while pq:
+        current_distance, current_node = heapq.heappop(pq)
+
+        if current_distance > distances[current_node]:
+            continue
             
         if current_node == target:
             break
 
-        unvisited.remove(current_node)
-
         for neighbor, weight in graph[current_node]:
-            alt_path = distances[current_node] + weight
+            alt_path = current_distance + weight
             if alt_path < distances[neighbor]:
                 distances[neighbor] = alt_path
                 previous_nodes[neighbor] = current_node
+                heapq.heappush(pq, (alt_path, neighbor))
 
-    # stitch back the exact list sequence of path nodes taken
+    if distances[target] == float('inf'):
+        return float('inf'), []
+
+    # Stitch back path nodes sequentially
     path = []
     curr = target
     while curr is not None:
         path.insert(0, curr)
         curr = previous_nodes[curr]
-
-    if distances[target] == float('inf'):
-        return float('inf'), []
         
     return distances[target], path
 
@@ -236,6 +240,8 @@ def itinerary():
             color='blue', weight=4, opacity=0.85, dash_array='5, 10'
         ).add_to(ir_map)
 
+    # Make sure the templates directory exists
+    os.makedirs('templates', exist_ok=True)
     ir_map.save('templates/map_embed.html')
 
     return render_template('itinerary.html', 
@@ -264,7 +270,6 @@ def meals():
             if len(trip_meals) > 0:
                 trip_meals.pop()
         else:
-            # save/update action: process input safely matching your form indices
             for index in range(len(trip_meals)):
                 trip_meals[index]['breakfast'] = request.form.get(f'breakfast_{index}', '')
                 trip_meals[index]['lunch'] = request.form.get(f'lunch_{index}', '')
@@ -273,7 +278,6 @@ def meals():
                 
                 try:
                     weight_val = request.form.get(f'weight_{index}', '0')
-                    # handle empty string input gracefully
                     trip_meals[index]['weight'] = float(weight_val) if weight_val.strip() else 0.0
                 except ValueError:
                     trip_meals[index]['weight'] = 0.0
@@ -291,6 +295,5 @@ def packing():
     return render_template('packing.html', gear=gear_list)
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
