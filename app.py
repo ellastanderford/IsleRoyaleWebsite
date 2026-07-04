@@ -1,6 +1,5 @@
 import os
 import heapq
-import time
 from flask import Flask, render_template, request
 import folium
 
@@ -10,7 +9,6 @@ app = Flask(__name__)
 # 1. campground database & map coordinates
 # ==========================================
 ALL_CAMPGROUNDS = {
-    # --- Official Campgrounds ---
     "Beaver Island": [47.904424, -89.174108],
     "Belle Isle": [48.157932, -88.586855],
     "Birch Island": [48.119809, -88.689763],
@@ -74,7 +72,7 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Chickenbone East", "McCargoe Cove", 1.2),
     ("Chickenbone West", "McCargoe Cove", 3.2),
     
-    # Indian Portage Trail (The Missing Link cutting through central lakes)
+    # Indian Portage Trail
     ("Chickenbone West", "Lake Richie", 3.4),
     ("Chickenbone East", "Lake Richie", 4.3),
     
@@ -117,19 +115,12 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Hay Bay", "Siskiwit Bay", 4.5)
 ]
 
-# ==========================================
-# 2. state management storage
-# ==========================================
 saved_route_plan = [
     {"day": "Day 1", "campground": "Rock Harbor"}
 ]
-
 trip_meals = []
 gear_list = []
 
-# ====================================================
-# 3. professional trail tracking core (dijkstra code)
-# ====================================================
 def find_shortest_path_trail(start, target):
     if start == target:
         return 0.0, [start]
@@ -147,10 +138,8 @@ def find_shortest_path_trail(start, target):
 
     while pq:
         current_distance, current_node = heapq.heappop(pq)
-
         if current_distance > distances[current_node]:
             continue
-            
         if current_node == target:
             break
 
@@ -169,9 +158,7 @@ def find_shortest_path_trail(start, target):
     while curr is not None:
         path.insert(0, curr)
         curr = previous_nodes[curr]
-        
     return distances[target], path
-
 
 def parse_full_itinerary_map_data(route_plan):
     if len(route_plan) < 2:
@@ -196,9 +183,6 @@ def parse_full_itinerary_map_data(route_plan):
 
     return f"{round(total_miles, 1)}", complete_trail_gps_points
 
-# ==========================================
-# 4. layout views controllers
-# ==========================================
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -225,8 +209,22 @@ def itinerary():
                 if selected_camp in ALL_CAMPGROUNDS:
                     saved_route_plan[index]['campground'] = selected_camp
 
+    total_miles, _ = parse_full_itinerary_map_data(saved_route_plan)
+    clean_dropdown_campgrounds = sorted([c for c in ALL_CAMPGROUNDS.keys() if not c.startswith("Jct_")])
+
+    return render_template('itinerary.html', 
+                           route=saved_route_plan, 
+                           campgrounds=clean_dropdown_campgrounds, 
+                           total_miles=total_miles)
+
+# This route now dynamically generates the map object directly in memory on request
+@app.route('/map_embed')
+def map_embed():
+    global saved_route_plan
+    
     ir_map = folium.Map(location=[48.05, -88.80], zoom_start=10, control_scale=True)
 
+    # Base markers
     for name, coords in ALL_CAMPGROUNDS.items():
         if not name.startswith("Jct_"):
             folium.CircleMarker(
@@ -234,8 +232,10 @@ def itinerary():
                 color='dimgray', fill=True, fill_color='lightgray', fill_opacity=0.7
             ).add_to(ir_map)
 
-    total_miles, snapped_trail_coordinates = parse_full_itinerary_map_data(saved_route_plan)
+    # Route math and lines
+    _, snapped_trail_coordinates = parse_full_itinerary_map_data(saved_route_plan)
 
+    # Route pins
     for index, stop in enumerate(saved_route_plan):
         camp_name = stop['campground']
         if camp_name in ALL_CAMPGROUNDS:
@@ -251,20 +251,7 @@ def itinerary():
             color='blue', weight=4, opacity=0.85, dash_array='5, 10'
         ).add_to(ir_map)
 
-    os.makedirs('templates', exist_ok=True)
-    ir_map.save('templates/map_embed.html')
-
-    clean_dropdown_campgrounds = sorted([c for c in ALL_CAMPGROUNDS.keys() if not c.startswith("Jct_")])
-
-    return render_template('itinerary.html', 
-                           route=saved_route_plan, 
-                           campgrounds=clean_dropdown_campgrounds, 
-                           total_miles=total_miles,
-                           timestamp=time.time()) # Sends a changing anchor on every single run
-
-@app.route('/map_embed')
-def map_embed():
-    return render_template('map_embed.html')
+    return ir_map._repr_html_()
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
