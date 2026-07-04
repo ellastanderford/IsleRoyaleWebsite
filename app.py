@@ -1,5 +1,6 @@
 import os
 import heapq
+import time
 from flask import Flask, render_template, request
 import folium
 
@@ -48,18 +49,14 @@ ALL_CAMPGROUNDS = {
     # --- Structural Trail Intersections ---
     "Jct_Mt_Franklin": [48.1328, -88.5492],
     "Jct_Mt_Ojibway": [48.1141, -88.6045],
-    "Jct_Tobin_Harbor": [48.1450, -88.4910],
     "Jct_Lake_Richie_Malone": [48.0435, -88.6790],
-    "Jct_Indian_Portage_Greenstone": [48.0655, -88.7110],
     "Jct_Hatchet_Ridge": [48.0381, -88.8312],
     "Jct_Minong_Todd": [48.0610, -88.8105]
 }
 
 OFFICIAL_TRAIL_NETWORK = [
-    # East Side / Rock Harbor Hubs
+    # East Side / Rock Harbor System
     ("Rock Harbor", "Three Mile", 2.7),
-    ("Rock Harbor", "Jct_Tobin_Harbor", 0.8),
-    ("Jct_Tobin_Harbor", "Three Mile", 2.2),
     ("Three Mile", "Daisy Farm", 4.4),
     
     # Mount Franklin & Lane Cove Snaps
@@ -70,17 +67,18 @@ OFFICIAL_TRAIL_NETWORK = [
     # Daisy Farm Ridges
     ("Daisy Farm", "Moskey Basin", 3.9),
     ("Daisy Farm", "Jct_Mt_Ojibway", 1.7),
-    ("Daisy Farm", "Jct_Indian_Portage_Greenstone", 7.9),
     
-    # Central Greenstone & Chickenbone System
+    # Central Greenstone Spine
     ("Jct_Mt_Ojibway", "Chickenbone East", 5.9),
     ("Chickenbone East", "Chickenbone West", 1.8),
     ("Chickenbone East", "McCargoe Cove", 1.2),
     ("Chickenbone West", "McCargoe Cove", 3.2),
-    ("Chickenbone West", "Jct_Indian_Portage_Greenstone", 0.2),
-    ("Jct_Indian_Portage_Greenstone", "Jct_Hatchet_Ridge", 5.4),
     
-    # Lake Richie Area Connections
+    # Indian Portage Trail (The Missing Link cutting through central lakes)
+    ("Chickenbone West", "Lake Richie", 3.4),
+    ("Chickenbone East", "Lake Richie", 4.3),
+    
+    # Lake Richie / Moskey Systems
     ("Moskey Basin", "Lake Richie", 2.0),
     ("Lake Richie", "Jct_Lake_Richie_Malone", 0.5),
     ("Jct_Lake_Richie_Malone", "Chippewa Harbor", 3.8),
@@ -88,7 +86,8 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Wood Lake", "Lake Richie", 2.1),
     ("Lake Richie Canoe", "Lake Richie", 0.8),
 
-    # Todd Harbor / Northern Minong Segments
+    # Todd Harbor / Northern Trails
+    ("Chickenbone West", "Jct_Hatchet_Ridge", 5.4),
     ("Jct_Hatchet_Ridge", "Hatchet Lake", 0.8),
     ("Hatchet Lake", "Jct_Minong_Todd", 3.3),
     ("Jct_Minong_Todd", "Todd Harbor", 0.8),
@@ -106,7 +105,7 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Island Mine", "Washington Creek (Windigo)", 6.6),
     ("Washington Creek (Windigo)", "Huginnin Cove", 4.0),
     
-    # Water-Taxi / Non-Standard Connectors
+    # Connectors
     ("Beaver Island", "Washington Creek (Windigo)", 1.5),
     ("Grace Island", "Washington Creek (Windigo)", 2.5),
     ("Caribou Island", "Three Mile", 2.0),
@@ -125,21 +124,13 @@ saved_route_plan = [
     {"day": "Day 1", "campground": "Rock Harbor"}
 ]
 
-trip_meals = [
-    {"day": "Day 1", "breakfast": "Oatmeal", "lunch": "Tuna & Tortillas", "dinner": "Dehydrated Chili", "snack": "Trail Mix", "weight": 14.5}
-]
-
-gear_list = ["Tent", "Sleeping Bag", "Water Filter"]
+trip_meals = []
+gear_list = []
 
 # ====================================================
 # 3. professional trail tracking core (dijkstra code)
 # ====================================================
 def find_shortest_path_trail(start, target):
-    """
-    advanced dijkstra implementation using a priority queue.
-    returns a tuple of (total_distance, list_of_campground_nodes_visited)
-    this ensures map paths snap along true trails instead of drawing across open water
-    """
     if start == target:
         return 0.0, [start]
 
@@ -183,10 +174,6 @@ def find_shortest_path_trail(start, target):
 
 
 def parse_full_itinerary_map_data(route_plan):
-    """
-    scans your multi-day stops and chains together the exact trail snaps
-    returns: (mileage_string, listing_of_all_lat_lng_trail_points)
-    """
     if len(route_plan) < 2:
         return "0.0", []
 
@@ -198,12 +185,10 @@ def parse_full_itinerary_map_data(route_plan):
         end = route_plan[i+1]['campground']
         
         miles, node_path = find_shortest_path_trail(start, end)
-        
         if miles == float('inf'):
             return "disconnected trail system paths selected", []
             
         total_miles += miles
-        
         for node in node_path:
             coords = ALL_CAMPGROUNDS[node]
             if not complete_trail_gps_points or complete_trail_gps_points[-1] != coords:
@@ -227,11 +212,7 @@ def itinerary():
 
         if action == 'add_stop':
             new_day = len(saved_route_plan) + 1
-            # If there's already a stop, default the new day to the previous day's choice
-            if saved_route_plan:
-                last_campground = saved_route_plan[-1]['campground']
-            else:
-                last_campground = "Rock Harbor"
+            last_campground = saved_route_plan[-1]['campground'] if saved_route_plan else "Rock Harbor"
             saved_route_plan.append({"day": f"Day {new_day}", "campground": last_campground})
             
         elif action == 'remove_stop':
@@ -246,7 +227,6 @@ def itinerary():
 
     ir_map = folium.Map(location=[48.05, -88.80], zoom_start=10, control_scale=True)
 
-    # Plot base map campground markers (Hiding structural Jct_ waypoints from messy rendering)
     for name, coords in ALL_CAMPGROUNDS.items():
         if not name.startswith("Jct_"):
             folium.CircleMarker(
@@ -274,59 +254,17 @@ def itinerary():
     os.makedirs('templates', exist_ok=True)
     ir_map.save('templates/map_embed.html')
 
-    # Filter waypoints out of dropdown select list so users only see real campsites
     clean_dropdown_campgrounds = sorted([c for c in ALL_CAMPGROUNDS.keys() if not c.startswith("Jct_")])
 
     return render_template('itinerary.html', 
                            route=saved_route_plan, 
                            campgrounds=clean_dropdown_campgrounds, 
-                           total_miles=total_miles)
+                           total_miles=total_miles,
+                           timestamp=time.time()) # Sends a changing anchor on every single run
 
 @app.route('/map_embed')
 def map_embed():
     return render_template('map_embed.html')
 
-@app.route('/meals', methods=['GET', 'POST'])
-def meals():
-    global trip_meals
-    
-    if request.method == 'POST':
-        action = request.form.get('action')
-        
-        if action == 'add':
-            new_day_num = len(trip_meals) + 1
-            trip_meals.append({
-                "day": f"Day {new_day_num}", 
-                "breakfast": "", "lunch": "", "dinner": "", "snack": "", "weight": 0.0
-            })
-        elif action == 'remove':
-            if len(trip_meals) > 0:
-                trip_meals.pop()
-        else:
-            for index in range(len(trip_meals)):
-                trip_meals[index]['breakfast'] = request.form.get(f'breakfast_{index}', '')
-                trip_meals[index]['lunch'] = request.form.get(f'lunch_{index}', '')
-                trip_meals[index]['dinner'] = request.form.get(f'dinner_{index}', '')
-                trip_meals[index]['snack'] = request.form.get(f'snack_{index}', '')
-                
-                try:
-                    weight_val = request.form.get(f'weight_{index}', '0')
-                    trip_meals[index]['weight'] = float(weight_val) if weight_val.strip() else 0.0
-                except ValueError:
-                    trip_meals[index]['weight'] = 0.0
-
-    total_weight = sum(meal.get('weight', 0.0) for meal in trip_meals)
-    return render_template('meals.html', meals=trip_meals, total_weight=round(total_weight, 2))
-
-@app.route('/packing', methods=['GET', 'POST'])
-def packing():
-    global gear_list
-    if request.method == 'POST':
-        item_to_add = request.form.get('new_item')
-        if item_to_add:
-            gear_list.append(item_to_add)
-    return render_template('packing.html', gear=gear_list)
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000, debug=True)
