@@ -1,9 +1,11 @@
 import os
 import heapq
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 import folium
 
 app = Flask(__name__)
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "isle-royale-secret-key-12345")
 
 # ==========================================
 # 1. campground database & map coordinates
@@ -14,7 +16,7 @@ ALL_CAMPGROUNDS = {
     "Birch Island": [48.119809, -88.689763],
     "Caribou Island": [48.100179, -88.569310],
     "Chickenbone East": [48.084501, -88.698689],
-    "Chickenbone West": [48.072115, -88.725469],
+    "Chickenbone West": [47.072115, -88.725469],
     "Chippewa Harbor": [48.030052, -88.650519],
     "Daisy Farm": [48.096984, -88.598019],
     "Duncan Bay": [48.155665, -88.521566],
@@ -115,9 +117,6 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Hay Bay", "Siskiwit Bay", 4.5)
 ]
 
-saved_route_plan = [
-    {"day": "Day 1", "campground": "Rock Harbor"}
-]
 trip_meals = []
 gear_list = []
 
@@ -189,42 +188,49 @@ def home():
 
 @app.route('/itinerary', methods=['GET', 'POST'])
 def itinerary():
-    global saved_route_plan
+    # Load session state data safely
+    if 'saved_route_plan' not in session:
+        session['saved_route_plan'] = [{"day": "Day 1", "campground": "Rock Harbor"}]
+    
+    # Work on a local reference copy
+    route_plan = list(session['saved_route_plan'])
 
     if request.method == 'POST':
         action = request.form.get('action')
 
         if action == 'add_stop':
-            new_day = len(saved_route_plan) + 1
-            last_campground = saved_route_plan[-1]['campground'] if saved_route_plan else "Rock Harbor"
-            saved_route_plan.append({"day": f"Day {new_day}", "campground": last_campground})
+            new_day = len(route_plan) + 1
+            last_campground = route_plan[-1]['campground'] if route_plan else "Rock Harbor"
+            route_plan.append({"day": f"Day {new_day}", "campground": last_campground})
             
         elif action == 'remove_stop':
-            if len(saved_route_plan) > 0:
-                saved_route_plan.pop()
+            if len(route_plan) > 0:
+                route_plan.pop()
                 
         elif action == 'save_route':
-            for index in range(len(saved_route_plan)):
+            for index in range(len(route_plan)):
                 selected_camp = request.form.get(f'camp_{index}')
                 if selected_camp in ALL_CAMPGROUNDS:
-                    saved_route_plan[index]['campground'] = selected_camp
+                    route_plan[index]['campground'] = selected_camp
 
-    total_miles, _ = parse_full_itinerary_map_data(saved_route_plan)
+        # Save updates back inside session tracking
+        session['saved_route_plan'] = route_plan
+
+    total_miles, _ = parse_full_itinerary_map_data(route_plan)
     clean_dropdown_campgrounds = sorted([c for c in ALL_CAMPGROUNDS.keys() if not c.startswith("Jct_")])
 
     return render_template('itinerary.html', 
-                           route=saved_route_plan, 
+                           route=route_plan, 
                            campgrounds=clean_dropdown_campgrounds, 
                            total_miles=total_miles)
 
-# This route now dynamically generates the map object directly in memory on request
 @app.route('/map_embed')
 def map_embed():
-    global saved_route_plan
+    # Read custom user values isolated in session
+    route_plan = session.get('saved_route_plan', [{"day": "Day 1", "campground": "Rock Harbor"}])
     
     ir_map = folium.Map(location=[48.05, -88.80], zoom_start=10, control_scale=True)
 
-    # Base markers
     for name, coords in ALL_CAMPGROUNDS.items():
         if not name.startswith("Jct_"):
             folium.CircleMarker(
@@ -232,11 +238,9 @@ def map_embed():
                 color='dimgray', fill=True, fill_color='lightgray', fill_opacity=0.7
             ).add_to(ir_map)
 
-    # Route math and lines
-    _, snapped_trail_coordinates = parse_full_itinerary_map_data(saved_route_plan)
+    _, snapped_trail_coordinates = parse_full_itinerary_map_data(route_plan)
 
-    # Route pins
-    for index, stop in enumerate(saved_route_plan):
+    for index, stop in enumerate(route_plan):
         camp_name = stop['campground']
         if camp_name in ALL_CAMPGROUNDS:
             folium.Marker(
