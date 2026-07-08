@@ -5,6 +5,7 @@ import folium
 
 app = Flask(__name__)
 
+# Required by Flask to encrypt session cookies securely
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "isle-royale-secret-key-12345")
 
 # ==========================================
@@ -117,9 +118,6 @@ OFFICIAL_TRAIL_NETWORK = [
     ("Hay Bay", "Siskiwit Bay", 4.5)
 ]
 
-trip_meals = []
-gear_list = []
-
 def find_shortest_path_trail(start, target):
     if start == target:
         return 0.0, [start]
@@ -188,11 +186,9 @@ def home():
 
 @app.route('/itinerary', methods=['GET', 'POST'])
 def itinerary():
-    # Load session state data safely
     if 'saved_route_plan' not in session:
         session['saved_route_plan'] = [{"day": "Day 1", "campground": "Rock Harbor"}]
     
-    # Work on a local reference copy
     route_plan = list(session['saved_route_plan'])
 
     if request.method == 'POST':
@@ -213,7 +209,6 @@ def itinerary():
                 if selected_camp in ALL_CAMPGROUNDS:
                     route_plan[index]['campground'] = selected_camp
 
-        # Save updates back inside session tracking
         session['saved_route_plan'] = route_plan
 
     total_miles, _ = parse_full_itinerary_map_data(route_plan)
@@ -226,7 +221,6 @@ def itinerary():
 
 @app.route('/map_embed')
 def map_embed():
-    # Read custom user values isolated in session
     route_plan = session.get('saved_route_plan', [{"day": "Day 1", "campground": "Rock Harbor"}])
     
     ir_map = folium.Map(location=[48.05, -88.80], zoom_start=10, control_scale=True)
@@ -256,6 +250,58 @@ def map_embed():
         ).add_to(ir_map)
 
     return ir_map._repr_html_()
+
+@app.route('/packing', methods=['GET', 'POST'])
+def packing():
+    if 'gear_session_list' not in session:
+        session['gear_session_list'] = ["Backpack", "Tent", "Sleeping Bag", "Water Filter", "Camp Stove"]
+    
+    current_gear = list(session['gear_session_list'])
+
+    if request.method == 'POST':
+        new_item = request.form.get('new_item')
+        if new_item:
+            current_gear.append(new_item)
+            session['gear_session_list'] = current_gear
+
+    return render_template('packing.html', gear=current_gear)
+
+@app.route('/meals', methods=['GET', 'POST'])
+def meals():
+    if 'trip_meals_list' not in session:
+        session['trip_meals_list'] = [
+            {"day": "Day 1", "breakfast": "Oatmeal", "lunch": "Tortilla & PB", "dinner": "Dehydrated Chili", "snack": "Trail Mix", "weight": 1.5}
+        ]
+    
+    current_meals = list(session['trip_meals_list'])
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'add':
+            new_day_num = len(current_meals) + 1
+            current_meals.append({
+                "day": f"Day {new_day_num}", 
+                "breakfast": "", "lunch": "", "dinner": "", "snack": "", "weight": 0.0
+            })
+        elif action == 'remove':
+            if len(current_meals) > 0:
+                current_meals.pop()
+        else:
+            for index in range(len(current_meals)):
+                current_meals[index]['breakfast'] = request.form.get(f'breakfast_{index}', '')
+                current_meals[index]['lunch'] = request.form.get(f'lunch_{index}', '')
+                current_meals[index]['dinner'] = request.form.get(f'dinner_{index}', '')
+                current_meals[index]['snack'] = request.form.get(f'snack_{index}', '')
+                try:
+                    current_meals[index]['weight'] = float(request.form.get(f'weight_{index}', 0.0))
+                except (ValueError, TypeError):
+                    current_meals[index]['weight'] = 0.0
+
+        session['trip_meals_list'] = current_meals
+
+    total_weight = sum(float(meal.get('weight', 0.0)) for meal in current_meals)
+    return render_template('meals.html', meals=current_meals, total_weight=round(total_weight, 1))
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
